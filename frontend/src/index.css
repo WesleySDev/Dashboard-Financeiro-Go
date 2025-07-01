@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-primary text-light transition-colors duration-300;
+}
+
+.card {
+  @apply bg-light text-primary p-6 rounded-lg shadow-md hover:scale-105 transition-transform duration-300;
+}
+
+.button {
+  @apply bg-accent text-primary px-4 py-2 rounded-full hover:brightness-110 transition-all duration-300;
+}
