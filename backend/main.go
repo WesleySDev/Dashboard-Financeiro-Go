@@ -23,18 +23,16 @@ func main() {
 
 	// Inicializa DB
 	database.Connect()
-	// Criar usuário padrão se não existir
-	var user models.User
-	database.DB.First(&user, "email = ?", "admin@admin.com")
-	if user.ID == 0 {
-		hash, _ := bcrypt.GenerateFromPassword([]byte("123456"), 14)
-		database.DB.Create(&models.User{
-			Nome:  "Admin",
-			Email: "admin@admin.com",
-			Senha: string(hash),
-		})
-		fmt.Println("✅ Usuário padrão criado: admin@admin.com / 123456")
-	}
+
+	// Força recriação do usuário admin
+	database.DB.Where("username = ?", "admin").Delete(&models.User{})
+	hash, _ := bcrypt.GenerateFromPassword([]byte("123456"), 14)
+	database.DB.Create(&models.User{
+		Nome:     "Admin",
+		Username: "admin",
+		Senha:    string(hash),
+	})
+	fmt.Println("✅ Usuário padrão recriado: admin / 123456")
 
 	// Rotas
 	routes.RegisterRoutes(e)

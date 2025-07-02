@@ -26,14 +26,15 @@ func Register(c echo.Context) error {
 
 func Login(c echo.Context) error {
 	var body struct {
-		Email string `json:"email"`
-		Senha string `json:"senha"`
+		Username string `json:"username"`
+		Senha    string `json:"senha"`
 	}
+
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
 	var user models.User
-	result := database.DB.First(&user, "email = ?", body.Email)
+	result := database.DB.First(&user, "username = ?", body.Username)
 	if result.Error != nil {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"erro": "Credenciais inválidas"})
 	}
