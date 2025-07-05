@@ -32,7 +32,7 @@ func main() {
 		Username: "admin",
 		Senha:    string(hash),
 	})
-	fmt.Println("✅ Usuário padrão recriado: admin / 123456")
+	fmt.Println("Usuário padrão recriado: admin / 123456")
 
 	// Rotas
 	routes.RegisterRoutes(e)
