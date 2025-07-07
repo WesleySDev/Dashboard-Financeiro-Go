@@ -69,6 +69,15 @@ const Login = () => {
             Entrar
           </button>
         </form>
+        <p className="text-center text-sm mt-6">
+          Ainda não tem conta?{" "}
+          <button
+            onClick={() => navigate("/register")}
+            className="text-green-400 hover:underline"
+          >
+            Crie uma
+          </button>
+        </p>
       </div>
     </div>
   );

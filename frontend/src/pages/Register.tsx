@@ -9,11 +9,29 @@ const Register = () => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (form.username && form.password) {
+
+    try {
+      const response = await fetch("http://localhost:3000/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: form.username,
+          username: form.username,
+          senha: form.password,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Erro ao cadastrar usuário");
+      }
+
       alert("Usuário cadastrado com sucesso!");
       navigate("/login");
+    } catch (err) {
+      alert("Falha no cadastro");
+      console.error(err);
     }
   };
 
@@ -47,6 +65,15 @@ const Register = () => {
             Cadastrar
           </button>
         </form>
+        <p className="text-center text-sm mt-6">
+          já possui uma conta?{" "}
+          <button
+            onClick={() => navigate("/login")}
+            className="text-green-400 hover:underline"
+          >
+            Entrar
+          </button>
+        </p>
       </div>
     </div>
   );

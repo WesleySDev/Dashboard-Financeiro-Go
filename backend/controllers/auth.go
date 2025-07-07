@@ -4,6 +4,7 @@ import (
 	"backend/database"
 	"backend/models"
 	"backend/utils"
+
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -15,6 +16,7 @@ func Register(c echo.Context) error {
 	if err := c.Bind(&user); err != nil {
 		return err
 	}
+
 	hash, _ := bcrypt.GenerateFromPassword([]byte(user.Senha), 14)
 	user.Senha = string(hash)
 	result := database.DB.Create(&user)
