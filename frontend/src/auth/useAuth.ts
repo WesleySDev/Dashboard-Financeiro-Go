@@ -1,24 +1,20 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export function useAuth() {
-  const [token, setToken] = useState<string | null>(() =>
-    sessionStorage.getItem("token")
-  );
+  const [usuario, setUsuario] = useState(() => {
+    const userData = localStorage.getItem("usuario");
+    return userData ? JSON.parse(userData) : null;
+  });
 
-  useEffect(() => {
-    const stored = sessionStorage.getItem("token");
-    setToken(stored);
-  }, []);
+  const login = (dadosUsuario: any) => {
+    setUsuario(dadosUsuario);
+    localStorage.setItem("usuario", JSON.stringify(dadosUsuario));
+  };
 
-  function login(token: string) {
-    sessionStorage.setItem("token", token);
-    setToken(token);
-  }
+  const logout = () => {
+    setUsuario(null);
+    localStorage.removeItem("usuario");
+  };
 
-  function logout() {
-    sessionStorage.removeItem("token");
-    setToken(null);
-  }
-
-  return { token, login, logout, isAuthenticated: !!token };
+  return { usuario, login, logout };
 }

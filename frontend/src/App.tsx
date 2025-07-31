@@ -1,10 +1,11 @@
+import Usuarios from "./pages/Usuarios";
+import ProtectedRoute from "./auth/ProtectedRoute";
+
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import LoginPage from "./pages/Login";
 import Register from "./pages/Register";
-
-import ProtectedRoute from "./auth/ProtectedRoute";
 
 function App() {
   return (
@@ -26,6 +27,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/usuarios"
+          element={
+            <ProtectedRoute>
+              <Usuarios />
             </ProtectedRoute>
           }
         />
