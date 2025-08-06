@@ -15,6 +15,8 @@ const Login = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      console.log('Tentando login com:', { username: form.username });
+      
       const response = await fetch("http://localhost:3000/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -24,12 +26,50 @@ const Login = () => {
         }),
       });
 
-      if (!response.ok) throw new Error("Credenciais inválidas");
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Erro na resposta do login:', errorData);
+        throw new Error(errorData.erro || "Credenciais inválidas");
+      }
 
       const data = await response.json();
-      auth.login(data.token);
+      console.log('Resposta do login:', data);
+      
+      if (!data.token) {
+        throw new Error("Token não recebido do servidor");
+      }
+      
+      // Obter dados do usuário após login bem-sucedido
+      console.log('Buscando dados do usuário com token:', data.token);
+      const userResponse = await fetch("http://localhost:3000/me", {
+        headers: {
+          "Authorization": `Bearer ${data.token}`,
+        },
+      });
+      
+      if (!userResponse.ok) {
+        const errorData = await userResponse.json();
+        console.error('Erro ao obter dados do usuário:', errorData);
+        throw new Error(errorData.erro || "Erro ao obter dados do usuário");
+      }
+      
+      const userData = await userResponse.json();
+      console.log('Dados do usuário recebidos:', userData);
+      
+      // Salvar token e dados do usuário
+      const userInfo = {
+        token: data.token,
+        id: userData.id,
+        nome: userData.nome,
+        username: userData.username
+      };
+      
+      console.log('Salvando dados do usuário:', userInfo);
+      auth.login(userInfo);
+      
       navigate("/dashboard");
     } catch (err) {
+      console.error('Erro durante o login:', err);
       if (err instanceof Error) {
         setError(err.message);
       } else {

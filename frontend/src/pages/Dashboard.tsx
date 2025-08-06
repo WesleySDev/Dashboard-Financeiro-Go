@@ -1,15 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import type { DropResult } from "@hello-pangea/dnd";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import api from "../api";
+import { useAuth } from "../auth/useAuth";
 const Dashboard = () => {
+  const { usuario } = useAuth();
   const [salario, setSalario] = useState(0);
   const [gasto, setGasto] = useState(0);
   const [custo, setCusto] = useState(0);
   const [gastos, setGastos] = useState<string[]>([]);
   const [novoGasto, setNovoGasto] = useState("");
+  const [dadosSalvos, setDadosSalvos] = useState(false);
 
   const salarioLiquido = salario - gasto - custo;
   const data = [
@@ -19,6 +23,62 @@ const Dashboard = () => {
   ];
 
   const COLORS = ["#10a37f", "#f97316", "#3b82f6"];
+
+  // Carregar dados do usuário ao iniciar
+  useEffect(() => {
+    const carregarDadosUsuario = async () => {
+      try {
+        const response = await api.get('/transacoes/dashboard');
+        if (response.data) {
+          setSalario(response.data.salario || 0);
+          setGasto(response.data.gasto || 0);
+          setCusto(response.data.custo || 0);
+          setGastos(response.data.gastos || []);
+          setDadosSalvos(true);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dados do dashboard:', error);
+        // Carregar dados do localStorage como fallback
+        const dadosSalvos = localStorage.getItem(`dashboard_${usuario?.id}`);
+        if (dadosSalvos) {
+          const dados = JSON.parse(dadosSalvos);
+          setSalario(dados.salario || 0);
+          setGasto(dados.gasto || 0);
+          setCusto(dados.custo || 0);
+          setGastos(dados.gastos || []);
+        }
+      }
+    };
+
+    if (usuario?.id) {
+      carregarDadosUsuario();
+    }
+  }, [usuario]);
+
+  // Salvar dados quando houver alterações
+  useEffect(() => {
+    const salvarDados = async () => {
+      if (!usuario?.id || !dadosSalvos) return;
+      
+      const dadosDashboard = {
+        salario,
+        gasto,
+        custo,
+        gastos
+      };
+      
+      // Salvar no localStorage como backup
+      localStorage.setItem(`dashboard_${usuario.id}`, JSON.stringify(dadosDashboard));
+      
+      try {
+        await api.post('/transacoes/dashboard', dadosDashboard);
+      } catch (error) {
+        console.error('Erro ao salvar dados do dashboard:', error);
+      }
+    };
+    
+    salvarDados();
+  }, [salario, gasto, custo, gastos, usuario, dadosSalvos]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
