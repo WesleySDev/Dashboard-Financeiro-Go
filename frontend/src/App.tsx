@@ -1,4 +1,3 @@
-import Usuarios from "./pages/Usuarios";
 import ProtectedRoute from "./auth/ProtectedRoute";
 
 import React from "react";
@@ -30,14 +29,7 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/usuarios"
-          element={
-            <ProtectedRoute>
-              <Usuarios />
-            </ProtectedRoute>
-          }
-        />
+
       </Routes>
     </Router>
   );

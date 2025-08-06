@@ -3,9 +3,9 @@ import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import type { DropResult } from "@hello-pangea/dnd";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { Trash2 } from "lucide-react";
-import { Link } from "react-router-dom";
 import api from "../api";
 import { useAuth } from "../auth/useAuth";
+import Sidebar from "../components/Sidebar";
 const Dashboard = () => {
   const { usuario } = useAuth();
   const [salario, setSalario] = useState(0);
@@ -108,12 +108,10 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="bg-[#0d1117] text-white p-6">
-      <Link to="/usuarios" className="text-blue-500 hover:underline">
-        Ir para aba de Usuários
-      </Link>
-
-      <div className="bg-[#0d1117] min-h-screen text-white p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="flex">
+      <Sidebar />
+      <div className="bg-[#0d1117] text-white p-6 ml-16 w-full">
+        <div className="bg-[#0d1117] min-h-screen text-white p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Gráfico */}
         <div className="bg-[#161b22] p-6 rounded-xl shadow-xl">
           <h2 className="text-lg font-semibold mb-4">Gráfico Financeiro</h2>
@@ -203,6 +201,7 @@ const Dashboard = () => {
               )}
             </Droppable>
           </DragDropContext>
+        </div>
         </div>
       </div>
     </div>

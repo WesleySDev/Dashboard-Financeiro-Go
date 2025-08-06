@@ -5,6 +5,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (dadosUsuario: any) => void;
   logout: () => void;
+  updateUserData: (dadosAtualizados: any) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -44,8 +45,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticated(false);
   };
 
+  const updateUserData = (dadosAtualizados: any) => {
+    if (!dadosAtualizados) {
+      console.error('Dados de atualização inválidos');
+      return;
+    }
+    
+    const updatedUser = { ...usuario, ...dadosAtualizados };
+    setUsuario(updatedUser);
+    localStorage.setItem('usuario', JSON.stringify(updatedUser));
+    console.log('Dados do usuário atualizados:', updatedUser);
+  };
+
   return (
-    <AuthContext.Provider value={{ usuario, isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ usuario, isAuthenticated, login, logout, updateUserData }}>
       {children}
     </AuthContext.Provider>
   );
