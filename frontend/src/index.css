@@ -3,6 +3,55 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Estilos para impressão */
+@media print {
+  /* Ocultar elementos desnecessários na impressão */
+  .no-print,
+  button:not(.print-button),
+  .sidebar,
+  nav,
+  .hover\:bg-\[\#0f8e6b\],
+  .hover\:bg-\[\#2563eb\] {
+    display: none !important;
+  }
+  
+  /* Ajustar layout para impressão */
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt;
+  }
+  
+  .bg-\[\#0d1117\],
+  .bg-\[\#161b22\] {
+    background: white !important;
+    border: 1px solid #ddd !important;
+  }
+  
+  .text-white {
+    color: black !important;
+  }
+  
+  .text-gray-400 {
+    color: #666 !important;
+  }
+  
+  /* Quebras de página */
+  .print-page-break {
+    page-break-before: always;
+  }
+  
+  /* Ajustar margens */
+  .ml-16 {
+    margin-left: 0 !important;
+  }
+  
+  /* Garantir que gráficos sejam visíveis */
+  svg {
+    background: white;
+  }
+}
+
 body {
   @apply bg-gray-100 text-gray-800;
 }

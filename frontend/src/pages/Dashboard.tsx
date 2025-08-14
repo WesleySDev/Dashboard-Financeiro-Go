@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import type { DropResult } from "@hello-pangea/dnd";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-import { Trash2, Plus, Calendar } from "lucide-react";
+import { Trash2, Plus, Calendar, Download, Printer } from "lucide-react";
 import api from "../api";
 import { useAuth } from "../auth/useAuth";
 import Sidebar from "../components/Sidebar";
@@ -183,6 +183,110 @@ const Dashboard = () => {
     return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
+  const imprimirRelatorio = () => {
+    window.print();
+  };
+
+  const baixarPDF = () => {
+    // Criar uma nova janela com o conteúdo para PDF
+    const conteudoPDF = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Relatório Financeiro - ${new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #10a37f; padding-bottom: 10px; }
+          .section { margin-bottom: 20px; }
+          .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+          .card { border: 1px solid #ddd; padding: 15px; border-radius: 8px; background: #f9f9f9; }
+          .value { font-size: 18px; font-weight: bold; margin-top: 5px; }
+          .positive { color: #10a37f; }
+          .negative { color: #ef4444; }
+          .orange { color: #f97316; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f2f2f2; }
+          .paid { text-decoration: line-through; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>📊 Relatório Financeiro</h1>
+          <h2>${new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</h2>
+          <p>Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
+        </div>
+        
+        <div class="section">
+          <h3>💰 Resumo Mensal</h3>
+          <div class="grid">
+            <div class="card">
+              <strong>Ganhos Totais</strong>
+              <div class="value positive">${formatarMoeda(ganhosMensais)}</div>
+            </div>
+            <div class="card">
+              <strong>Contas Pagas (${contasPagasMes.length})</strong>
+              <div class="value negative">${formatarMoeda(totalContasPagas)}</div>
+            </div>
+            <div class="card">
+              <strong>Gastos Extras (${gastos.length})</strong>
+              <div class="value orange">${formatarMoeda(gasto)}</div>
+            </div>
+            <div class="card">
+              <strong>Custos Fixos</strong>
+              <div class="value orange">${formatarMoeda(custo)}</div>
+            </div>
+            <div class="card">
+              <strong>Saldo Disponível</strong>
+              <div class="value ${ganhosMensais - totalContasPagas - gasto - custo >= 0 ? 'positive' : 'negative'}">
+                ${formatarMoeda(ganhosMensais - totalContasPagas - gasto - custo)}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="section">
+          <h3>🧾 Contas do Mês</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Valor</th>
+                <th>Data</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${contas.map(conta => `
+                <tr class="${conta.pago ? 'paid' : ''}">
+                  <td>${conta.tipo}</td>
+                  <td>${formatarMoeda(conta.valor)}</td>
+                  <td>${new Date(conta.dataPagamento).toLocaleDateString('pt-BR')}</td>
+                  <td>${conta.pago ? '✅ Pago' : '⏳ Pendente'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="section">
+          <h3>💸 Gastos Extras</h3>
+          <ul>
+            ${gastos.map(gasto => `<li>${gasto}</li>`).join('')}
+          </ul>
+        </div>
+      </body>
+      </html>
+    `;
+    
+    const novaJanela = window.open('', '_blank');
+    if (novaJanela) {
+      novaJanela.document.write(conteudoPDF);
+      novaJanela.document.close();
+      novaJanela.print();
+    }
+  };
+
   return (
     <div className="flex">
       <Sidebar />
@@ -190,10 +294,30 @@ const Dashboard = () => {
         {/* Seção de Ganhos Mensais */}
         <div className="mb-6">
           <div className="bg-[#161b22] p-6 rounded-xl shadow-xl">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Calendar className="text-[#10a37f]" size={20} />
-              Resumo Mensal - {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-            </h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Calendar className="text-[#10a37f]" size={20} />
+                Resumo Mensal - {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+              </h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={imprimirRelatorio}
+                  className="flex items-center gap-2 px-3 py-2 bg-[#10a37f] text-white rounded-lg hover:bg-[#0f8e6b] transition-all text-sm"
+                  title="Imprimir relatório"
+                >
+                  <Printer size={16} />
+                  Imprimir
+                </button>
+                <button
+                  onClick={baixarPDF}
+                  className="flex items-center gap-2 px-3 py-2 bg-[#3b82f6] text-white rounded-lg hover:bg-[#2563eb] transition-all text-sm"
+                  title="Baixar como PDF"
+                >
+                  <Download size={16} />
+                  PDF
+                </button>
+              </div>
+            </div>
             
             {/* Linha principal de ganhos */}
             <div className="mb-4">
