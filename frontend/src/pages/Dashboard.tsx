@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import type { DropResult } from "@hello-pangea/dnd";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-import { Trash2, Plus, Calendar, Download, Printer } from "lucide-react";
+import { Trash2, Plus, Calendar, Download, Printer, Upload, Save, FileDown, FileUp } from "lucide-react";
 import api from "../api";
 import { useAuth } from "../auth/useAuth";
 import Sidebar from "../components/Sidebar";
@@ -287,6 +287,106 @@ const Dashboard = () => {
     }
   };
 
+  // Funções de Backup e Restauração
+  const exportarDados = () => {
+    const dadosBackup = {
+      versao: "1.0",
+      dataExportacao: new Date().toISOString(),
+      usuario: usuario?.email || "usuario",
+      dados: {
+        salario,
+        gasto,
+        custo,
+        gastos,
+        ganhosMensais,
+        contas
+      }
+    };
+
+    const dataStr = JSON.stringify(dadosBackup, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `backup-financeiro-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    alert('✅ Backup exportado com sucesso!');
+  };
+
+  const importarDados = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const dadosImportados = JSON.parse(e.target?.result as string);
+        
+        // Validar estrutura do arquivo
+        if (!dadosImportados.dados || !dadosImportados.versao) {
+          throw new Error('Arquivo de backup inválido');
+        }
+
+        const { dados } = dadosImportados;
+        
+        // Confirmar importação
+        const confirmar = window.confirm(
+          `🔄 Deseja importar os dados do backup?\n\n` +
+          `📅 Data do backup: ${new Date(dadosImportados.dataExportacao).toLocaleString('pt-BR')}\n` +
+          `👤 Usuário: ${dadosImportados.usuario}\n` +
+          `💰 Ganhos mensais: ${formatarMoeda(dados.ganhosMensais || 0)}\n` +
+          `🧾 Contas: ${dados.contas?.length || 0}\n` +
+          `💸 Gastos: ${dados.gastos?.length || 0}\n\n` +
+          `⚠️ ATENÇÃO: Isso substituirá todos os dados atuais!`
+        );
+
+        if (confirmar) {
+          // Importar dados com validação
+          setSalario(dados.salario || 0);
+          setGasto(dados.gasto || 0);
+          setCusto(dados.custo || 0);
+          setGastos(dados.gastos || []);
+          setGanhosMensais(dados.ganhosMensais || dados.salario || 0);
+          setContas(dados.contas || []);
+          
+          alert('✅ Dados importados com sucesso!');
+        }
+      } catch (error) {
+        console.error('Erro ao importar dados:', error);
+        alert('❌ Erro ao importar dados. Verifique se o arquivo é um backup válido.');
+      }
+    };
+    
+    reader.readAsText(file);
+    // Limpar o input para permitir reimportação do mesmo arquivo
+    event.target.value = '';
+  };
+
+  const criarBackupAutomatico = () => {
+    const dadosBackup = {
+      salario,
+      gasto,
+      custo,
+      gastos,
+      ganhosMensais,
+      contas,
+      timestamp: new Date().toISOString()
+    };
+    
+    localStorage.setItem(`backup_automatico_${usuario?.id}`, JSON.stringify(dadosBackup));
+  };
+
+  // Criar backup automático a cada mudança importante
+  useEffect(() => {
+    if (dadosSalvos && usuario?.id) {
+      criarBackupAutomatico();
+    }
+  }, [salario, gasto, custo, gastos, ganhosMensais, contas, usuario, dadosSalvos]);
+
   return (
     <div className="flex">
       <Sidebar />
@@ -316,6 +416,24 @@ const Dashboard = () => {
                   <Download size={16} />
                   PDF
                 </button>
+                <button
+                  onClick={exportarDados}
+                  className="flex items-center gap-2 px-3 py-2 bg-[#f97316] text-white rounded-lg hover:bg-[#ea580c] transition-all text-sm"
+                  title="Exportar backup dos dados"
+                >
+                  <FileDown size={16} />
+                  Backup
+                </button>
+                <label className="flex items-center gap-2 px-3 py-2 bg-[#8b5cf6] text-white rounded-lg hover:bg-[#7c3aed] transition-all text-sm cursor-pointer" title="Importar backup dos dados">
+                  <FileUp size={16} />
+                  Restaurar
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={importarDados}
+                    className="hidden"
+                  />
+                </label>
               </div>
             </div>
             
