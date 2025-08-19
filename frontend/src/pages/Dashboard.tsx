@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import type { DropResult } from "@hello-pangea/dnd";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-import { Trash2, Plus, Calendar, Download, Printer, Upload, Save, FileDown, FileUp } from "lucide-react";
+import { Trash2, Plus, Calendar, Download, Printer, Upload, Save, FileDown, FileUp, Bell, BellRing, Settings, AlertTriangle } from "lucide-react";
 import api from "../api";
 import { useAuth } from "../auth/useAuth";
 import Sidebar from "../components/Sidebar";
@@ -13,6 +13,23 @@ interface Conta {
   valor: number;
   dataPagamento: string;
   pago: boolean;
+}
+
+interface Notificacao {
+  id: string;
+  tipo: 'vencimento' | 'lembrete' | 'alerta';
+  titulo: string;
+  mensagem: string;
+  data: string;
+  lida: boolean;
+  contaId?: string;
+}
+
+interface ConfigNotificacao {
+  notificacoesPush: boolean;
+  diasAntecedencia: number;
+  horarioLembrete: string;
+  lembretesDiarios: boolean;
 }
 const Dashboard = () => {
   const { usuario } = useAuth();
@@ -28,6 +45,18 @@ const Dashboard = () => {
   const [contas, setContas] = useState<Conta[]>([]);
   const [novaConta, setNovaConta] = useState({ tipo: "", valor: "", data: "" });
   const [mostrarFormConta, setMostrarFormConta] = useState(false);
+  
+  // Estados para sistema de notificações
+  const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
+  const [configNotificacao, setConfigNotificacao] = useState<ConfigNotificacao>({
+    notificacoesPush: true,
+    diasAntecedencia: 3,
+    horarioLembrete: "09:00",
+    lembretesDiarios: true
+  });
+  const [mostrarNotificacoes, setMostrarNotificacoes] = useState(false);
+  const [mostrarConfigNotificacao, setMostrarConfigNotificacao] = useState(false);
+  const [permissaoNotificacao, setPermissaoNotificacao] = useState<NotificationPermission>('default');
   
   // Calcular total de contas pagas no mês atual
   const mesAtual = new Date().getMonth();
@@ -387,6 +416,141 @@ const Dashboard = () => {
     }
   }, [salario, gasto, custo, gastos, ganhosMensais, contas, usuario, dadosSalvos]);
 
+  // Funções do Sistema de Notificações
+  const solicitarPermissaoNotificacao = async () => {
+    if ('Notification' in window) {
+      const permission = await Notification.requestPermission();
+      setPermissaoNotificacao(permission);
+      return permission === 'granted';
+    }
+    return false;
+  };
+
+  const enviarNotificacaoPush = (titulo: string, mensagem: string, icone?: string) => {
+    if (permissaoNotificacao === 'granted' && configNotificacao.notificacoesPush) {
+      new Notification(titulo, {
+        body: mensagem,
+        icon: icone || '/vite.svg',
+        badge: '/vite.svg',
+        tag: 'financial-dashboard'
+      });
+    }
+  };
+
+  const criarNotificacao = (tipo: 'vencimento' | 'lembrete' | 'alerta', titulo: string, mensagem: string, contaId?: string) => {
+    const novaNotificacao: Notificacao = {
+      id: Date.now().toString(),
+      tipo,
+      titulo,
+      mensagem,
+      data: new Date().toISOString(),
+      lida: false,
+      contaId
+    };
+    
+    setNotificacoes(prev => [novaNotificacao, ...prev]);
+    
+    // Enviar notificação push se habilitada
+    if (configNotificacao.notificacoesPush) {
+      enviarNotificacaoPush(titulo, mensagem);
+    }
+    
+    return novaNotificacao;
+  };
+
+  const verificarVencimentos = () => {
+    const hoje = new Date();
+    const diasAntecedencia = configNotificacao.diasAntecedencia;
+    
+    contas.forEach(conta => {
+      if (!conta.pago) {
+        const dataVencimento = new Date(conta.dataPagamento);
+        const diasParaVencimento = Math.ceil((dataVencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // Verificar se já existe notificação para esta conta
+        const jaNotificado = notificacoes.some(notif => notif.contaId === conta.id && notif.tipo === 'vencimento');
+        
+        if (!jaNotificado) {
+          if (diasParaVencimento <= diasAntecedencia && diasParaVencimento >= 0) {
+            const titulo = diasParaVencimento === 0 ? '🚨 Conta vence hoje!' : `⏰ Conta vence em ${diasParaVencimento} dia(s)`;
+            const mensagem = `${conta.tipo}: ${formatarMoeda(conta.valor)} - Vencimento: ${formatarData(conta.dataPagamento)}`;
+            
+            criarNotificacao('vencimento', titulo, mensagem, conta.id);
+          } else if (diasParaVencimento < 0) {
+            const diasAtraso = Math.abs(diasParaVencimento);
+            const titulo = `🔴 Conta em atraso há ${diasAtraso} dia(s)!`;
+            const mensagem = `${conta.tipo}: ${formatarMoeda(conta.valor)} - Venceu em: ${formatarData(conta.dataPagamento)}`;
+            
+            criarNotificacao('alerta', titulo, mensagem, conta.id);
+          }
+        }
+      }
+    });
+  };
+
+  const marcarNotificacaoLida = (id: string) => {
+    setNotificacoes(prev => prev.map(notif => 
+      notif.id === id ? { ...notif, lida: true } : notif
+    ));
+  };
+
+  const limparNotificacoes = () => {
+    setNotificacoes([]);
+  };
+
+  const removerNotificacao = (id: string) => {
+    setNotificacoes(prev => prev.filter(notif => notif.id !== id));
+  };
+
+  const contarNotificacaoNaoLidas = () => {
+    return notificacoes.filter(notif => !notif.lida).length;
+  };
+
+  // Verificar permissão de notificação ao carregar
+  useEffect(() => {
+    if ('Notification' in window) {
+      setPermissaoNotificacao(Notification.permission);
+    }
+  }, []);
+
+  // Verificar vencimentos periodicamente
+  useEffect(() => {
+    if (contas.length > 0) {
+      verificarVencimentos();
+      
+      // Verificar a cada hora
+      const interval = setInterval(verificarVencimentos, 60 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
+  }, [contas, configNotificacao.diasAntecedencia]);
+
+  // Lembrete diário
+  useEffect(() => {
+    if (configNotificacao.lembretesDiarios) {
+      const agora = new Date();
+      const [hora, minuto] = configNotificacao.horarioLembrete.split(':').map(Number);
+      const proximoLembrete = new Date(agora);
+      proximoLembrete.setHours(hora, minuto, 0, 0);
+      
+      if (proximoLembrete <= agora) {
+        proximoLembrete.setDate(proximoLembrete.getDate() + 1);
+      }
+      
+      const timeout = setTimeout(() => {
+        const contasPendentes = contas.filter(conta => !conta.pago).length;
+        if (contasPendentes > 0) {
+          criarNotificacao(
+            'lembrete',
+            '📋 Lembrete Financeiro Diário',
+            `Você tem ${contasPendentes} conta(s) pendente(s) para revisar.`
+          );
+        }
+      }, proximoLembrete.getTime() - agora.getTime());
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [configNotificacao.lembretesDiarios, configNotificacao.horarioLembrete, contas]);
+
   return (
     <div className="flex">
       <Sidebar />
@@ -434,6 +598,35 @@ const Dashboard = () => {
                     className="hidden"
                   />
                 </label>
+                
+                {/* Botão de Notificações */}
+                <div className="relative">
+                  <button
+                    onClick={() => setMostrarNotificacoes(!mostrarNotificacoes)}
+                    className="flex items-center gap-2 px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-all text-sm relative"
+                  >
+                    {contarNotificacaoNaoLidas() > 0 ? (
+                      <BellRing size={16} />
+                    ) : (
+                      <Bell size={16} />
+                    )}
+                    Notificações
+                    {contarNotificacaoNaoLidas() > 0 && (
+                      <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                        {contarNotificacaoNaoLidas()}
+                      </span>
+                    )}
+                  </button>
+                </div>
+                
+                {/* Botão de Configurações de Notificação */}
+                <button
+                  onClick={() => setMostrarConfigNotificacao(!mostrarConfigNotificacao)}
+                  className="flex items-center gap-2 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all text-sm"
+                >
+                  <Settings size={16} />
+                  Config
+                </button>
               </div>
             </div>
             
@@ -496,6 +689,180 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* Modal de Notificações */}
+        {mostrarNotificacoes && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-[#161b22] p-6 rounded-xl shadow-xl max-w-md w-full mx-4 max-h-96 overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Bell className="text-yellow-500" size={20} />
+                  Notificações ({notificacoes.length})
+                </h3>
+                <div className="flex gap-2">
+                  <button
+                    onClick={limparNotificacoes}
+                    className="text-red-400 hover:text-red-500 text-sm"
+                  >
+                    Limpar todas
+                  </button>
+                  <button
+                    onClick={() => setMostrarNotificacoes(false)}
+                    className="text-gray-400 hover:text-white"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+              
+              {notificacoes.length === 0 ? (
+                <p className="text-gray-400 text-center py-4">Nenhuma notificação</p>
+              ) : (
+                <div className="space-y-3">
+                  {notificacoes.map((notif) => (
+                    <div
+                      key={notif.id}
+                      className={`p-3 rounded-lg border transition-all ${
+                        notif.lida ? 'bg-[#0d1117] border-[#30363d] opacity-60' : 'bg-[#0d1117] border-yellow-500 border-opacity-50'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            {notif.tipo === 'vencimento' && <Calendar className="text-orange-500" size={16} />}
+                            {notif.tipo === 'lembrete' && <Bell className="text-blue-500" size={16} />}
+                            {notif.tipo === 'alerta' && <AlertTriangle className="text-red-500" size={16} />}
+                            <h4 className="font-medium text-sm">{notif.titulo}</h4>
+                          </div>
+                          <p className="text-gray-400 text-xs mb-2">{notif.mensagem}</p>
+                          <p className="text-gray-500 text-xs">
+                            {new Date(notif.data).toLocaleString('pt-BR')}
+                          </p>
+                        </div>
+                        <div className="flex gap-1">
+                          {!notif.lida && (
+                            <button
+                              onClick={() => marcarNotificacaoLida(notif.id)}
+                              className="text-green-400 hover:text-green-500 text-xs"
+                            >
+                              ✓
+                            </button>
+                          )}
+                          <button
+                            onClick={() => removerNotificacao(notif.id)}
+                            className="text-red-400 hover:text-red-500 text-xs"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        
+        {/* Modal de Configurações de Notificação */}
+        {mostrarConfigNotificacao && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-[#161b22] p-6 rounded-xl shadow-xl max-w-md w-full mx-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Settings className="text-gray-400" size={20} />
+                  Configurações de Notificação
+                </h3>
+                <button
+                  onClick={() => setMostrarConfigNotificacao(false)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                {/* Permissão de notificação */}
+                <div className="p-3 bg-[#0d1117] rounded-lg border border-[#30363d]">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium">Notificações Push</span>
+                    <span className={`text-xs px-2 py-1 rounded ${
+                      permissaoNotificacao === 'granted' ? 'bg-green-600' : 
+                      permissaoNotificacao === 'denied' ? 'bg-red-600' : 'bg-yellow-600'
+                    }`}>
+                      {permissaoNotificacao === 'granted' ? 'Permitido' : 
+                       permissaoNotificacao === 'denied' ? 'Negado' : 'Pendente'}
+                    </span>
+                  </div>
+                  {permissaoNotificacao !== 'granted' && (
+                    <button
+                      onClick={solicitarPermissaoNotificacao}
+                      className="w-full bg-[#10a37f] text-white py-2 rounded hover:bg-[#0f8e6b] transition-all text-sm"
+                    >
+                      Solicitar Permissão
+                    </button>
+                  )}
+                </div>
+                
+                {/* Configurações */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={configNotificacao.notificacoesPush}
+                        onChange={(e) => setConfigNotificacao(prev => ({...prev, notificacoesPush: e.target.checked}))}
+                        className="w-4 h-4 text-[#10a37f] bg-[#0d1117] border-[#30363d] rounded focus:ring-[#10a37f]"
+                      />
+                      <span className="text-sm">Ativar notificações push</span>
+                    </label>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm mb-1">Dias de antecedência para avisos:</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="30"
+                      value={configNotificacao.diasAntecedencia}
+                      onChange={(e) => setConfigNotificacao(prev => ({...prev, diasAntecedencia: parseInt(e.target.value)}))}
+                      className="w-full p-2 rounded bg-[#0d1117] border border-[#30363d] text-white focus:outline-none focus:ring-2 focus:ring-[#10a37f]"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm mb-1">Horário do lembrete diário:</label>
+                    <input
+                      type="time"
+                      value={configNotificacao.horarioLembrete}
+                      onChange={(e) => setConfigNotificacao(prev => ({...prev, horarioLembrete: e.target.value}))}
+                      className="w-full p-2 rounded bg-[#0d1117] border border-[#30363d] text-white focus:outline-none focus:ring-2 focus:ring-[#10a37f]"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={configNotificacao.lembretesDiarios}
+                        onChange={(e) => setConfigNotificacao(prev => ({...prev, lembretesDiarios: e.target.checked}))}
+                        className="w-4 h-4 text-[#10a37f] bg-[#0d1117] border-[#30363d] rounded focus:ring-[#10a37f]"
+                      />
+                      <span className="text-sm">Ativar lembretes diários</span>
+                    </label>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => setMostrarConfigNotificacao(false)}
+                  className="w-full bg-[#10a37f] text-white py-2 rounded hover:bg-[#0f8e6b] transition-all"
+                >
+                  Salvar Configurações
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="bg-[#0d1117] min-h-screen text-white p-6 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
         {/* Gráfico */}
